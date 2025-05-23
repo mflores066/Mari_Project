@@ -1,20 +1,14 @@
 <?php
 $activePage = 'Running order';
+include 'db_conn.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Table Reservation - Running Order</title>
-
-  <!-- Add FontAwesome CSS here correctly -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-  />
-
+  <title>Running Order</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     body {
       margin: 0;
@@ -72,7 +66,7 @@ $activePage = 'Running order';
 
     .main {
       display: flex;
-      justify-content: center; /* center horizontally */
+      justify-content: center;
       gap: 20px;
       padding: 20px;
     }
@@ -81,14 +75,13 @@ $activePage = 'Running order';
       display: grid;
       grid-template-columns: repeat(3, 150px);
       gap: 30px;
-      /* allow floor-plan to shrink but not grow too big */
-      max-width: 480px; 
+      max-width: 480px;
     }
 
     .table {
-      background-color: #888;
+      background-color: #888; /* gray table */
       border-radius: 20px;
-      width: 120px;
+      width: 100px;
       height: 100px;
       position: relative;
       display: flex;
@@ -96,21 +89,29 @@ $activePage = 'Running order';
       align-items: center;
       color: white;
       font-weight: bold;
-      cursor: pointer;
+      font-size: 16px;
     }
 
     .seat {
       width: 30px;
       height: 30px;
+      background-color: green;
       border-radius: 50%;
       position: absolute;
     }
 
-    .selected-table {
-      outline: 3px solid #00f;
+    .seat.top { top: -20px; left: 50%; transform: translateX(-50%); }
+    .seat.bottom { bottom: -20px; left: 50%; transform: translateX(-50%); }
+    .seat.left { left: -20px; top: 50%; transform: translateY(-50%); }
+    .seat.right { right: -20px; top: 50%; transform: translateY(-50%); }
+
+    .timestamp {
+      position: absolute;
+      bottom: 5px;
+      font-size: 10px;
+      color: white;
     }
 
-    /* Sidebar styles from your provided code */
     .right-sidebar {
       width: 250px;
       background-color: #e0e0e0;
@@ -139,19 +140,8 @@ $activePage = 'Running order';
       font-weight: bold;
     }
 
-    .available { background-color: #c3f; }
-    .reserved { background-color: orange; }
-    .billed { background-color: green; }
-    .soon { background-color: yellow; color: black; }
+    .tag.billed { background-color: green; }
 
-    .timestamp {
-      position: absolute;
-      bottom: 2px;
-      font-size: 10px;
-      color: black;
-    }
-
-    /* Top-left icons styling */
     .top-left-icons {
       position: fixed;
       top: 15px;
@@ -165,7 +155,6 @@ $activePage = 'Running order';
       color: #a00;
       font-size: 26px;
       text-decoration: none;
-      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -174,33 +163,57 @@ $activePage = 'Running order';
       border-radius: 8px;
       background-color: #eee;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      transition: background-color 0.3s ease;
     }
 
     .top-left-icons a:hover {
       background-color: #a00;
       color: white;
     }
+
+    .top-right-buttons {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+    }
+
+    .top-right-buttons button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      background-color: #a00;
+      color: white;
+      transition: background-color 0.3s ease;
+    }
+
+    .top-right-buttons button:hover {
+      background-color: #800000;
+    }
   </style>
 </head>
 <body>
 
-<!-- Fixed top-left icon buttons container -->
 <div class="top-left-icons">
-  <a href="menu.php" title="Food">
-    <i class="fas fa-utensils"></i>
-  </a>
-  <a href="tablepage.php" title="Table">
-    <i class="fas fa-table"></i>
-  </a>
+  <a href="menu.php" title="Food"><i class="fas fa-utensils"></i></a>
+  <a href="tablepage.php" title="Table"><i class="fas fa-table"></i></a>
+</div>
+
+<div class="top-right-buttons">
+  <button onclick="location.href='myaccount.php'">My Account</button>
+  <button id="logoutBtn">Logout</button>
 </div>
 
 <header>TABLE RESERVATION</header>
 
 <div class="controls">
-  <a href="tablepage.php" class="<?= $activePage === 'All table' ? 'selected' : '' ?>">All table</a>
-  <a href="reservation.php" class="<?= $activePage === 'Reservation' ? 'selected' : '' ?>">Reservation</a>
-  <a href="runningorder.php" class="<?= $activePage === 'Running order' ? 'selected' : '' ?>">Running order</a>
+  <a href="tablepage.php" class="<?php echo $activePage === 'All table' ? 'selected' : ''; ?>">All table</a>
+  <a href="reservation.php" class="<?php echo $activePage === 'Reservation' ? 'selected' : ''; ?>">Reservation</a>
+  <a href="runningorder.php" class="<?php echo $activePage === 'Running order' ? 'selected' : ''; ?>">Running order</a>
 </div>
 
 <div class="status-legend">
@@ -212,68 +225,51 @@ $activePage = 'Running order';
 
 <div class="main">
   <div class="floor-plan">
+    <?php
+    $sql = "SELECT id, table_number, status, available_soon_time FROM tables WHERE status = 'billed' ORDER BY id ASC";
+    $result = $conn->query($sql);
+    while ($row = $result->fetch_assoc()) {
+        $tableNum = htmlspecialchars($row['table_number']);
+        $soonTime = $row['available_soon_time'];
+        $status = htmlspecialchars($row['status']);
 
-    <!-- Billed -->
-    <div class="table">T-07
-      <div class="seat billed" style="top:-15px; left: 45px;"></div>
-      <div class="seat billed" style="bottom:-15px; left: 45px;"></div>
-      <div class="seat billed" style="left:-15px; top: 35px;"></div>
-      <div class="seat billed" style="right:-15px; top: 35px;"></div>
-    </div>
-    <div class="table">T-08
-      <div class="seat billed" style="top:-15px; left: 45px;"></div>
-      <div class="seat billed" style="bottom:-15px; left: 45px;"></div>
-      <div class="seat billed" style="left:-15px; top: 35px;"></div>
-      <div class="seat billed" style="right:-15px; top: 35px;"></div>
-    </div>
-    <div class="table">T-09
-      <div class="seat billed" style="top:-15px; left: 45px;"></div>
-      <div class="seat billed" style="bottom:-15px; left: 45px;"></div>
-      <div class="seat billed" style="left:-15px; top: 35px;"></div>
-      <div class="seat billed" style="right:-15px; top: 35px;"></div>
-    </div>
-
-    <!-- Available Soon -->
-    <div class="table">T-10
-      <div class="seat soon" style="top:-15px; left: 45px;"></div>
-      <div class="seat soon" style="bottom:-15px; left: 45px;"></div>
-      <div class="seat soon" style="left:-15px; top: 35px;"></div>
-      <div class="seat soon" style="right:-15px; top: 35px;"></div>
-      <div class="timestamp">Soon: 10:30</div>
-    </div>
-    <div class="table">T-11
-      <div class="seat soon" style="top:-15px; left: 45px;"></div>
-      <div class="seat soon" style="bottom:-15px; left: 45px;"></div>
-      <div class="seat soon" style="left:-15px; top: 35px;"></div>
-      <div class="seat soon" style="right:-15px; top: 35px;"></div>
-      <div class="timestamp">Soon: 11:00</div>
-    </div>
-    <div class="table">T-12
-      <div class="seat soon" style="top:-15px; left: 45px;"></div>
-      <div class="seat soon" style="bottom:-15px; left: 45px;"></div>
-      <div class="seat soon" style="left:-15px; top: 35px;"></div>
-      <div class="seat soon" style="right:-15px; top: 35px;"></div>
-      <div class="timestamp">Soon: 11:30</div>
-    </div>
+        echo '<div class="table">';
+        echo $tableNum;
+        echo '<div class="seat top"></div>';
+        echo '<div class="seat bottom"></div>';
+        echo '<div class="seat left"></div>';
+        echo '<div class="seat right"></div>';
+        if ($soonTime) {
+            echo '<div class="timestamp">Soon: ' . date('H:i', strtotime($soonTime)) . '</div>';
+        }
+        echo '</div>';
+    }
+    ?>
   </div>
 
   <div class="right-sidebar">
     <div class="sidebar-section">
-      <h4>Table Status Summary</h4>
-      <div class="tag billed">Billed: 3</div>
-      <br>
-      <div class="tag billed">T-07</div>
-      <div class="tag billed">T-08</div>
-      <div class="tag billed">T-09</div>
-      <br>
-      <div class="tag soon">Available Soon: 3</div>
-      <br>
-      <div class="tag soon">T-10</div>
-      <div class="tag soon">T-11</div>
-      <div class="tag soon">T-12</div>
+      <h4>Running Orders</h4>
+      <?php
+      $count = 0;
+      $countSql = "SELECT COUNT(*) AS total FROM tables WHERE status = 'billed'";
+      $res = $conn->query($countSql);
+      if ($row = $res->fetch_assoc()) {
+          $count = $row['total'];
+      }
+      ?>
+      <div class="tag billed">Billed: <?php echo $count; ?></div>
     </div>
   </div>
 </div>
+
+<script>
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (confirm("Are you sure you want to log out?")) {
+      window.location.href = 'logout.php';
+    }
+  });
+</script>
 
 </body>
 </html>

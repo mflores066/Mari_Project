@@ -90,6 +90,12 @@ include 'db_conn.php'; // database connection
       color: white;
       font-weight: bold;
       cursor: pointer;
+      user-select: none;
+      transition: background-color 0.3s ease;
+    }
+
+    .table:hover {
+      background-color: #b55;
     }
 
     .seat {
@@ -210,11 +216,10 @@ include 'db_conn.php'; // database connection
           $tableId = (int)$row['id'];
           $tableNum = htmlspecialchars($row['table_number']);
           $status = htmlspecialchars($row['status']);
-          $soonTime = $row['available_soon_time'];
           $reservedAt = $row['reserved_at'];
 
           echo '<div class="table" data-id="' . $tableId . '" data-status="' . $status . '" data-number="' . $tableNum . '">';
-          echo $tableNum;
+          echo "Table $tableNum";
 
           for ($i = 0; $i < 4; $i++) {
               $positionStyle = ($i == 0) ? 'top:-15px; left:45px;' :
@@ -258,6 +263,39 @@ include 'db_conn.php'; // database connection
   </div>
 </div>
 
+<script>
+// When a reserved table is clicked, show a prompt to confirm billing
+document.querySelectorAll('.table').forEach(table => {
+  table.addEventListener('click', () => {
+    const tableId = table.getAttribute('data-id');
+    const tableNumber = table.getAttribute('data-number');
+    
+    if (confirm(`Mark Table ${tableNumber} as Billed?`)) {
+      // Send AJAX request to update status
+      fetch('update_table_status.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: tableId, status: 'billed' })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(`Table ${tableNumber} marked as Billed.`);
+          // Redirect to running order page after update
+          window.location.href = 'runningorder.php';
+        } else {
+          alert('Failed to update status: ' + data.message);
+        }
+      })
+      .catch(() => {
+        alert('Error updating status.');
+      });
+    }
+  });
+});
+</script>
+
 </body>
 </html>
-      
